@@ -1,71 +1,136 @@
+import { useRouter } from 'expo-router';
+import { GraduationCap, ShieldCheck } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-export default function LoginScreen() {
+export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loadingType, setLoadingType] = useState<'student' | 'coach' | null>(null);
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  
 
-  const handleLogin = async () => {
-  const { error } = await supabase.auth.signInWithPassword({
-    email: email,
-    password: password,
-  });
+    const handleLogin = async (selectedType: 'student' | 'coach') => {
+    if (!email || !password) {
+      return Alert.alert("Uyarı", "Lütfen tüm alanları doldurun.");
+    }
 
-  if (error) {
-    Alert.alert('Hata', 'Giriş yapılamadı: ' + error.message);
-  } else {
-    Alert.alert('Başarılı', 'Giriş yapıldı!');
-    // Burada dashboard'a yönlendirme yapacağız
-  }
-};
+    setLoadingType(selectedType);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (authError) throw authError;
+
+      // Profil bilgilerini çekiyoruz
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', authData.user?.id)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error("Profil bilgileriniz bulunamadı.");
+      }
+
+      const userRole = profile.role;
+      // admin, coach veya admin.coach gibi rolleri koç olarak kabul et
+      const isCoachOrAdmin = userRole.includes('coach') || userRole.includes('admin');
+
+      // YETKİ KONTROLLERİ
+      if (selectedType === 'coach' && !isCoachOrAdmin) {
+        await supabase.auth.signOut();
+        throw new Error("Bu hesap koç veya admin yetkisine sahip değil.");
+      }
+
+      if (selectedType === 'student' && userRole !== 'student') {
+        await supabase.auth.signOut();
+        throw new Error("Bu hesap bir öğrenci hesabı değildir.");
+      }
+
+      // YÖNLENDİRME
+      if (isCoachOrAdmin) {
+        router.replace('/coach-dashboard');
+      } else {
+        router.replace('/student-dashboard');
+      }
+
+    } catch (error: any) {
+      Alert.alert("Giriş Hatası", error.message);
+    } finally {
+      setLoadingType(null);
+    }
+  };
+
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      className="flex-1 bg-slate-50"
-    >
-      <View className="flex-1 justify-center px-8">
-        <View className="items-center mb-10">
-          <Text className="text-3xl font-bold text-blue-600">Koçluk Paneli</Text>
-          <Text className="text-slate-500 mt-2 text-center">Öğrenci takip sistemine hoş geldiniz</Text>
+    <ScrollView className="flex-1 bg-[#f8fafc]">
+      <View className="min-h-screen items-center justify-center p-6">
+        
+        {/* Logo Alanı */}
+        <View className="mb-10 items-center">
+          <Text className="text-3xl font-black text-slate-900 tracking-tight">Tekrar Hoş Geldin!</Text>
+          <Text className="text-slate-400 font-medium mt-2 text-center">Eğitim yolculuğuna devam etmek için giriş yap.</Text>
         </View>
 
-        <View className="space-y-4">
-          <View>
-            <Text className="text-slate-700 mb-2 font-medium">E-posta Adresi</Text>
+        {/* Form Alanı */}
+        <View className="w-full max-w-md bg-white p-8 rounded-[2.5rem] shadow-xl">
+          <View className="space-y-4">
+            <Text className="font-bold text-xs uppercase tracking-widest text-slate-400 ml-1">E-posta Adresi</Text>
             <TextInput
-              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"
-              placeholder="koc@example.com"
               value={email}
               onChangeText={setEmail}
+              placeholder="ornek@mail.com"
+              className="h-14 rounded-2xl border border-slate-100 bg-slate-50 px-4 focus:border-blue-500 font-medium"
               autoCapitalize="none"
             />
-          </View>
 
-          <View className="mt-4">
-            <Text className="text-slate-700 mb-2 font-medium">Şifre</Text>
+            <Text className="font-bold text-xs uppercase tracking-widest text-slate-400 ml-1 mt-4">Şifre</Text>
             <TextInput
-              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"
-              placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
+              placeholder="••••••••"
               secureTextEntry
+              className="h-14 rounded-2xl border border-slate-100 bg-slate-50 px-4 focus:border-blue-500 font-medium"
             />
-          </View>
 
-          <TouchableOpacity 
-            onPress={handleLogin}
-            className="bg-blue-600 p-4 rounded-xl mt-6 shadow-md shadow-blue-300"
-          >
-            <Text className="text-white text-center font-bold text-lg">Giriş Yap</Text>
-          </TouchableOpacity>
+            <View className="flex flex-col gap-4 mt-6">
+              {/* Öğrenci Girişi Butonu */}
+              <TouchableOpacity
+                onPress={() => handleLogin('student')}
+                disabled={isLoading}
+                className="h-16 flex-row items-center justify-center bg-blue-600 rounded-2xl shadow-lg shadow-blue-200"
+              >
+                {isLoading ? <ActivityIndicator color="white" /> : <GraduationCap size={24} color="white" />}
+                <Text className="text-white text-lg font-black ml-3">Öğrenci Girişi</Text>
+              </TouchableOpacity>
+
+              <View className="flex-row items-center my-2">
+                <View className="flex-1 h-[1px] bg-slate-100" />
+                <Text className="mx-4 text-slate-300 font-bold text-xs">VEYA</Text>
+                <View className="flex-1 h-[1px] bg-slate-100" />
+              </View>
+
+              {/* Koç Girişi Butonu */}
+              <TouchableOpacity
+                onPress={() => handleLogin('coach')}
+                disabled={isLoading}
+                className="h-16 flex-row items-center justify-center bg-white border-2 border-slate-100 rounded-2xl"
+              >
+                <ShieldCheck size={24} color="#2563eb" />
+                <Text className="text-slate-600 text-lg font-black ml-3">Koç Girişi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
-        <Text className="text-center text-slate-400 mt-8 text-xs">
-          V 1.0.0 - Kişiye Özel Koçluk Sistemi
-        </Text>
+        <Text className="mt-8 text-slate-300 text-sm font-bold">© 2026 Göksel Atak Eğitim Kurumları</Text>
       </View>
-    </KeyboardAvoidingView>
+    </ScrollView>
   );
 }
