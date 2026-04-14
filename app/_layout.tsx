@@ -1,63 +1,54 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
 import "../global.css";
 
 
-
-
-import { useColorScheme } from '@/components/useColorScheme';
-
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary
-} from 'expo-router';
-
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import { Drawer } from 'expo-router/drawer';
+import { LayoutDashboard, ShieldCheck, UserPlus } from 'lucide-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import "../global.css";
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Drawer
+        screenOptions={{
+          headerShown: true,
+          headerStyle: { backgroundColor: '#f8fafc' },
+          headerTitleStyle: { fontWeight: '900', textTransform: 'uppercase', fontSize: 14, letterSpacing: 1 },
+          drawerActiveTintColor: '#2563eb',
+          drawerLabelStyle: { fontWeight: '700', marginLeft: -10 },
+          drawerStyle: { backgroundColor: 'white', width: 280 },
+        }}
+      >
+        <Drawer.Screen
+          name="coach-dashboard"
+          options={{
+            drawerLabel: 'Kontrol Paneli',
+            title: 'KOÇLUK SİSTEMİ',
+            drawerIcon: ({ color }) => <LayoutDashboard size={22} color={color} />,
+          }}
+        />
+        <Drawer.Screen
+          name="add-student"
+          options={{
+            drawerLabel: 'Öğrenci Ekle',
+            title: 'YENİ ÖĞRENCİ',
+            drawerIcon: ({ color }) => <UserPlus size={22} color={color} />,
+          }}
+        />
+        <Drawer.Screen
+          name="add-coach"
+          options={{
+            drawerLabel: 'Alt Koç Tanımla',
+            title: 'YENİ KOÇ',
+            drawerIcon: ({ color }) => <ShieldCheck size={22} color={color} />,
+          }}
+        />
+        
+        {/* Görünmesini istemediğimiz sayfaları gizleyelim */}
+        <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
+        <Drawer.Screen name="login" options={{ drawerItemStyle: { display: 'none' }, headerShown: false }} />
+        <Drawer.Screen name="student-detail" options={{ drawerItemStyle: { display: 'none' }, title: 'ÖĞRENCİ ANALİZ' }} />
+      </Drawer>
+    </GestureHandlerRootView>
   );
 }
